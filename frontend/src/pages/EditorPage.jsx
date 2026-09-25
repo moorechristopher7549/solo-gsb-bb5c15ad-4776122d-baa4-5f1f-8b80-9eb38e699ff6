@@ -54,14 +54,17 @@ export default function EditorPage() {
     return () => clearTimeout(timer)
   }, [location.state])
 
-  // Deep link from the quality-check workbench: ?ann=…&focusStart=…&focusEnd=…
+  // Deep link from a workbench: ?ann=…&focusStart=…&focusEnd=…
+  // (&from=coverage when it came from the blind-spot workbench)
   useEffect(() => {
     const annId = searchParams.get('ann')
+    const from = searchParams.get('from')
     const fs = Number(searchParams.get('focusStart'))
     const fe = Number(searchParams.get('focusEnd'))
     if (Number.isFinite(fs) && Number.isFinite(fe)) {
       setQualityFocus({
         annId,
+        from,
         range: { start: fs, end: fe },
       })
       setTimeout(() => timelineRef.current?.scrollIntoView(
@@ -76,6 +79,7 @@ export default function EditorPage() {
     setTurnFocus(null)
     if (searchParams.has('focusStart')) {
       searchParams.delete('ann')
+      searchParams.delete('from')
       searchParams.delete('focusStart')
       searchParams.delete('focusEnd')
       setSearchParams(searchParams, { replace: true })
@@ -271,6 +275,9 @@ export default function EditorPage() {
           <Link className="btn" to={`/projects/${id}/public`}>
             🛡️ 公开版转写
           </Link>
+          <Link className="btn" to={`/projects/${id}/coverage`}>
+            🕳️ 覆盖盲区
+          </Link>
           <button className="btn" onClick={() => importRef.current?.click()}>
             导入转写
           </button>
@@ -321,7 +328,11 @@ export default function EditorPage() {
         />
         {qualityFocus && (
           <div className="qc-focus-hint sev-error">
-            <strong>来自校注质检的定位</strong>
+            <strong>
+              {qualityFocus.from === 'coverage'
+                ? '来自覆盖盲区工作台的定位'
+                : '来自校注质检的定位'}
+            </strong>
             <span>
               {qualityFocus.range.start.toFixed(2)}s –{' '}
               {qualityFocus.range.end.toFixed(2)}s
@@ -330,9 +341,15 @@ export default function EditorPage() {
             <button className="btn small" onClick={clearQualityFocus}>
               取消定位
             </button>
-            <Link className="btn small" to={`/projects/${id}/quality`}>
-              返回质检工作台 →
-            </Link>
+            {qualityFocus.from === 'coverage' ? (
+              <Link className="btn small" to={`/projects/${id}/coverage`}>
+                返回覆盖盲区工作台 →
+              </Link>
+            ) : (
+              <Link className="btn small" to={`/projects/${id}/quality`}>
+                返回质检工作台 →
+              </Link>
+            )}
           </div>
         )}
         {quoteFocus && (

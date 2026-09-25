@@ -9,7 +9,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import db, excerpts, importer, quality, quotes, redact, rules, speakers
+from . import (
+    coverage, db, excerpts, importer, quality, quotes, redact, rules, speakers,
+)
 from .merge import merge_documents
 from .schemas import (
     DocumentIn,
@@ -330,6 +332,22 @@ def public_transcript_download(project_id: str, payload: PublicTranscriptRequest
                 f"filename*=UTF-8''{fname}"
         },
     )
+
+
+# ---------- annotation coverage blind spots (校注覆盖盲区) ----------
+
+@app.get("/api/projects/{project_id}/coverage")
+def coverage_report(project_id: str, speaker: str | None = None) -> dict:
+    """Per-speaker speech / coverage durations and blind-spot intervals.
+
+    Read-only: computed from the project's *saved* document. ``speaker``
+    (optional query, exact name) restricts the report to one speaker.
+    """
+    project = _get_or_404(project_id)
+    result = coverage.compute_coverage(project["document"], speaker)
+    result["projectId"] = project_id
+    result["projectName"] = project["name"]
+    return result
 
 
 # ---------- rule-based batch annotation ----------

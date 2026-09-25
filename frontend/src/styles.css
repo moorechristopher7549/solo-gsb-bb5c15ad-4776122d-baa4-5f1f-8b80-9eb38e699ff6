@@ -755,3 +755,32 @@ code {
 .pt-alias-tag { background: #eef2fb; border-color: #ccd8f0; color: #2c4a8a; }
 .pt-seg .hit-range { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .pt-seg.pt-masked { border-left: 3px solid var(--warn); padding-left: 8px; }
+
+/* ---------- coverage blind spots (覆盖盲区) ---------- */
+.coverage-hint { margin-bottom: 12px; max-width: 880px; }
+.coverage-summary { margin-top: 4px; }
+.coverage-summary .stat-box .stat-num {
+  font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.coverage-table { margin-bottom: 4px; }
+.coverage-table tbody tr { cursor: pointer; }
+.coverage-table tbody tr:hover { background: #f5f8ff; }
+.coverage-table tbody tr.selected { background: #eaf0fd; }
+.coverage-table .cov-num { font-variant-numeric: tabular-nums; }
+.coverage-rate-col { min-width: 180px; }
+.coverage-rate { display: flex; align-items: center; gap: 8px; }
+.coverage-bar {
+  flex: 1; min-width: 80px; height: 8px; border-radius: 4px;
+  background: #e6ebf4; overflow: hidden;
+}
+.coverage-bar-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, #4d86e8, #2c8a5a);
+}
+.coverage-filter-panel {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.coverage-filter-count { margin-left: auto; }
+.coverage-spot { border-left-color: var(--danger); }
+.coverage-spot:hover { background: #fdf5f4; }
+.coverage-spot.active { box-shadow: 0 0 0 2px rgba(207, 75, 75, 0.35); }

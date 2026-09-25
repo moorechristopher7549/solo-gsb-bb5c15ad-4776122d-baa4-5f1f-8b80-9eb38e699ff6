@@ -121,4 +121,9 @@ export const api = {
     }),
   publicTranscriptDownloadUrl: (projectId) =>
     `${BASE}/projects/${projectId}/public-transcript/download`,
+
+  // ----- annotation coverage blind spots (覆盖盲区) -----
+  getCoverage: (projectId, speaker = '') =>
+    request(`/projects/${projectId}/coverage${
+      speaker ? `?speaker=${encodeURIComponent(speaker)}` : ''}`),
 };
