@@ -121,4 +121,12 @@ export const api = {
     }),
   publicTranscriptDownloadUrl: (projectId) =>
     `${BASE}/projects/${projectId}/public-transcript/download`,
+
+  // ----- annotation coverage gaps (校注覆盖盲区) -----
+  coverageGaps: (projectId, speaker = null) => {
+    const qs = speaker
+      ? `?speaker=${encodeURIComponent(speaker)}`
+      : ''
+    return request(`/projects/${projectId}/coverage${qs}`)
+  },
 };

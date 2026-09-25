@@ -126,6 +126,9 @@ export default function ProjectListPage() {
               <Link className="btn small" to={`/projects/${p.id}/rules`}>
                 规则标注
               </Link>
+              <Link className="btn small" to={`/projects/${p.id}/coverage`}>
+                覆盖盲区
+              </Link>
               <button
                 className="btn small"
                 onClick={() => downloadJson(

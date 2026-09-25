@@ -27,6 +27,7 @@ export default function EditorPage() {
   const [quoteFocus, setQuoteFocus] = useState(null) // {range,speaker}
   const [speakingFocus, setSpeakingFocus] = useState(null) // {range,speakers}
   const [turnFocus, setTurnFocus] = useState(null) // {range,from,to,kind}
+  const [coverageFocus, setCoverageFocus] = useState(null) // {range}
   const importRef = useRef(null)
   const timelineRef = useRef(null)
 
@@ -54,16 +55,18 @@ export default function EditorPage() {
     return () => clearTimeout(timer)
   }, [location.state])
 
-  // Deep link from the quality-check workbench: ?ann=…&focusStart=…&focusEnd=…
+  // Deep link from the quality-check / coverage workbenches:
+  // ?focusStart=…&focusEnd=…[&ann=…][&focusSource=coverage]
   useEffect(() => {
-    const annId = searchParams.get('ann')
     const fs = Number(searchParams.get('focusStart'))
     const fe = Number(searchParams.get('focusEnd'))
     if (Number.isFinite(fs) && Number.isFinite(fe)) {
-      setQualityFocus({
-        annId,
-        range: { start: fs, end: fe },
-      })
+      const range = { start: fs, end: fe }
+      if (searchParams.get('focusSource') === 'coverage') {
+        setCoverageFocus({ range })
+      } else {
+        setQualityFocus({ annId: searchParams.get('ann'), range })
+      }
       setTimeout(() => timelineRef.current?.scrollIntoView(
         { behavior: 'smooth', block: 'center' }), 300)
     }
@@ -74,10 +77,12 @@ export default function EditorPage() {
     setQuoteFocus(null)
     setSpeakingFocus(null)
     setTurnFocus(null)
+    setCoverageFocus(null)
     if (searchParams.has('focusStart')) {
       searchParams.delete('ann')
       searchParams.delete('focusStart')
       searchParams.delete('focusEnd')
+      searchParams.delete('focusSource')
       setSearchParams(searchParams, { replace: true })
     }
   }
@@ -88,6 +93,7 @@ export default function EditorPage() {
     setQualityFocus(null)
     setSpeakingFocus(null)
     setTurnFocus(null)
+    setCoverageFocus(null)
     setQuoteFocus({
       range: { start: match.start, end: match.end },
       speaker: match.speaker,
@@ -102,6 +108,7 @@ export default function EditorPage() {
     setQualityFocus(null)
     setQuoteFocus(null)
     setTurnFocus(null)
+    setCoverageFocus(null)
     setSpeakingFocus({ range: { start, end }, speakers: activeSpeakers })
     setTimeout(() => timelineRef.current?.scrollIntoView(
       { behavior: 'smooth', block: 'center' }), 0)
@@ -113,6 +120,7 @@ export default function EditorPage() {
     setQualityFocus(null)
     setQuoteFocus(null)
     setSpeakingFocus(null)
+    setCoverageFocus(null)
     setTurnFocus({ range: { start, end }, from, to, kind })
     setTimeout(() => timelineRef.current?.scrollIntoView(
       { behavior: 'smooth', block: 'center' }), 0)
@@ -259,6 +267,9 @@ export default function EditorPage() {
           <Link className="btn" to={`/projects/${id}/quality`}>
             🧪 校注质检
           </Link>
+          <Link className="btn" to={`/projects/${id}/coverage`}>
+            🧭 覆盖盲区
+          </Link>
           <Link className="btn" to={`/projects/${id}/speakers`}>
             🏷️ 说话人归一
           </Link>
@@ -302,14 +313,16 @@ export default function EditorPage() {
           selectedId={modal?.initial?.id}
           highlightIds={qualityFocus?.annId ? [qualityFocus.annId] : null}
           focusRange={
-            (qualityFocus || quoteFocus || speakingFocus || turnFocus)?.range
+            (qualityFocus || quoteFocus || speakingFocus
+              || turnFocus || coverageFocus)?.range
             || null
           }
           focusVariant={
             quoteFocus ? 'quote'
               : speakingFocus ? 'speaking'
                 : turnFocus ? 'turn'
-                  : 'quality'
+                  : coverageFocus ? 'coverage'
+                    : 'quality'
           }
           onSelect={onTimelineSelect}
           onBackgroundClick={clearQualityFocus}
@@ -374,6 +387,21 @@ export default function EditorPage() {
             <button className="btn small" onClick={clearQualityFocus}>
               取消定位
             </button>
+          </div>
+        )}
+        {coverageFocus && (
+          <div className="qc-focus-hint coverage-focus-hint">
+            <strong>校注覆盖盲区定位</strong>
+            <span>
+              {coverageFocus.range.start.toFixed(2)}s –{' '}
+              {coverageFocus.range.end.toFixed(2)}s
+            </span>
+            <button className="btn small" onClick={clearQualityFocus}>
+              取消定位
+            </button>
+            <Link className="btn small" to={`/projects/${id}/coverage`}>
+              返回覆盖盲区工作台 →
+            </Link>
           </div>
         )}
       </div>

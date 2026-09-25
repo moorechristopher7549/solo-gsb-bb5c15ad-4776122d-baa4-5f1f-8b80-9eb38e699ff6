@@ -9,7 +9,17 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import db, excerpts, importer, quality, quotes, redact, rules, speakers
+from . import (
+    coverage,
+    db,
+    excerpts,
+    importer,
+    quality,
+    quotes,
+    redact,
+    rules,
+    speakers,
+)
 from .merge import merge_documents
 from .schemas import (
     DocumentIn,
@@ -519,6 +529,26 @@ def compare_quality_scans(project_id: str,
         return quality.compare_scans(base_scan, target_scan)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ---------- annotation coverage gap workbench (校注覆盖盲区) ----------
+
+@app.get("/api/projects/{project_id}/coverage")
+def coverage_gaps(project_id: str, speaker: str | None = None) -> dict:
+    """Per-speaker speech duration, annotation-covered duration and gaps.
+
+    Computed over the *saved* project document: a speaker's speech is merged
+    from their own touching / overlapping segments, and only same-speaker
+    annotations count as coverage (clipped to the speech range, unioned so
+    overlapping annotations are never timed twice). ``speaker`` optionally
+    filters the report to one exact speaker name.
+    """
+    project = _get_or_404(project_id)
+    result = coverage.coverage_report(project["document"], speaker)
+    result["projectId"] = project_id
+    result["projectName"] = project["name"]
+    result["speaker"] = speaker.strip() if speaker else None
+    return result
 
 
 # ---------- three-way merge ----------

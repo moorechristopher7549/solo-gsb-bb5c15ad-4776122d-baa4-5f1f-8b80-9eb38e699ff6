@@ -9,7 +9,10 @@
 手工标注永不覆盖，每次应用均可一键撤销。项目内还提供**校注质检工作台**：在
 指定时间区间上建立扫描线，检测校注越界、校注之间的时间重叠与说话人不一致，
 按严重级别筛选、点击问题定位时间轴，可修复的越界项支持一键裁剪后保存，
-质检结果可导出 JSON。项目编辑页内置**引语检索**：输入短语（及可选说话人），
+质检结果可导出 JSON。项目内另设**校注覆盖盲区工作台**：基于已保存的转写
+片段与校注，按说话人统计实际发言时长、已覆盖时长与覆盖率并列出未覆盖的
+发言区间（同名校注才可覆盖、越界与重叠均不重复计时），可按说话人筛选，
+点击区间返回编辑页定位时间轴。项目编辑页内置**引语检索**：输入短语（及可选说话人），
 可命中跨越多个时间相接、同说话人片段的引语，逐字标出原文命中字符，点击结果
 定位时间轴。项目编辑页还内置**发言时长**面板：按当前转写片段的半开时间区间
 统计每位说话人的独讲时长、同讲时长，列出多人同讲区间与全体同时发言区间，
@@ -55,9 +58,12 @@ docker compose up -d --build
 
 在首页打开任一项目即进入项目编辑页（`/projects/{id}`），时间轴下方依次是
 「发言时长」「接话关系」与「引语检索」面板，顶部操作区有「📦 摘录包」入口
-（`/projects/{id}/excerpts`，即 **http://localhost:8000/projects/{id}/excerpts**）
-与「🛡️ 公开版转写」入口（`/projects/{id}/public`，即
-**http://localhost:8000/projects/{id}/public**）；
+（`/projects/{id}/excerpts`，即 **http://localhost:8000/projects/{id}/excerpts**）、
+「🛡️ 公开版转写」入口（`/projects/{id}/public`，即
+**http://localhost:8000/projects/{id}/public**）与「🧭 覆盖盲区」入口
+（`/projects/{id}/coverage`，即
+**http://localhost:8000/projects/{id}/coverage**，首页项目卡片上也有
+「覆盖盲区」入口）；
 更换访问端口只需调整 Compose / `-p` 端口映射（容器内固定监听 8000）。
 
 停止：
@@ -434,6 +440,43 @@ JSON 消费方）。重新导入导出的 JSON 时，这些校注按普通校注
    五个字段；不含校注、原说话人姓名与敏感词原文，服务端不写库，
    **原项目保持不变**。
 
+### 12. 校注覆盖盲区
+
+在项目编辑页点击「🧭 覆盖盲区」（首页项目卡片上也有「覆盖盲区」入口）
+进入覆盖盲区工作台，路由 `/projects/{id}/coverage`，访问地址
+**http://localhost:8000/projects/{id}/coverage**（端口随 Compose /
+`-p` 映射调整，容器内固定 8000）。工作台是**只读**的，基于**已保存**
+的转写片段与校注统计（编辑页未保存的修改不包含在内），不会修改原项目。
+
+统计规则（半开时间区间，毫秒精度，页面以秒显示）：
+
+1. **忽略空说话人**（空串 / 纯空白）与**零长度或非法片段 / 校注**
+   （`end <= start`、时间非数字）；
+2. **先合并同一说话人自身重叠（含端点相接）的发言片段**，保证同一毫秒
+   不会因片段重叠而给同一说话人重复累加；
+3. **仅同名说话人的校注可覆盖其发言**：把该说话人的全部校注先做并集
+   （**重叠校注不重复计时**），再与其发言区间取交集——校注**超出发言
+   范围的部分**（越出转写、覆盖内部空隙、延伸到他人发言的部分）一律
+   **不计入**覆盖；
+4. 发言区间减去同名校注的覆盖并集，余下的即该说话人的**未覆盖盲区**；
+   **多人同时发言分别计入各自说话人**（A 发言的覆盖情况只看 A 的校注，
+   与 B 是否在场、是否有校注无关）。
+
+工作台展示：
+
+1. 顶部统计条：说话人数、实际发言总时长、已覆盖总时长、总覆盖率与
+   未覆盖总时长（含盲区段数，各说话人时长之和，多人同讲区间会计入
+   每位在场说话人）；
+2. **说话人筛选条**：「全部」与每位说话人一个按钮（按钮上直接显示该
+   说话人覆盖率与盲区段数），点击即按说话人筛选盲区列表与统计表；
+3. **按说话人统计表**：每行列出实际发言时长、已覆盖时长、未覆盖时长、
+   覆盖率（带进度条）与盲区段数，点击说话人名同样可筛选；
+4. **未覆盖发言区间列表**：每段标注起止时间、说话人与未覆盖时长；
+   **点击任一行**即携带 `?focusStart=&focusEnd=&focusSource=coverage`
+   **深链返回编辑页**，时间轴以琥珀色框标出该盲区并平滑滚动定位，
+   可在时间轴上直接拖选补全校注（提示条可「取消定位」或返回盲区
+   工作台）；项目不存在时 API 与页面返回 **404**。
+
 ---
 
 ## 合并规则说明
@@ -489,6 +532,7 @@ JSON 消费方）。重新导入导出的 JSON 时，这些校注按普通校注
 | POST | `/api/projects/{id}/excerpts/download` | 同内容以附件 JSON 下载摘录包（不写库，原项目不变） |
 | POST | `/api/projects/{id}/public-transcript/preview` | 公开版转写预览：敏感词遮盖 + 说话人匿名编号（只读，基于已保存转写） |
 | POST | `/api/projects/{id}/public-transcript/download` | 下载只含片段的公开版 JSON（附件；不写库，原项目不变） |
+| GET | `/api/projects/{id}/coverage?speaker=` | 校注覆盖盲区：按说话人统计实际发言 / 已覆盖时长、覆盖率与未覆盖区间（只读，基于已保存文档；可按说话人筛选，项目不存在 404） |
 | POST | `/api/projects/{id}/quality-check` | 校注质检（越界 / 重叠 / 说话人不一致），结果自动存入扫描历史，见下 |
 | GET | `/api/projects/{id}/quality-scans` | 项目的扫描历史（时间倒序，含窗口 / 统计，不含问题明细） |
 | GET | `/api/projects/{id}/quality-scans/{scanId}` | 读取某次扫描的完整问题快照 |
@@ -763,6 +807,65 @@ JSON 消费方）。重新导入导出的 JSON 时，这些校注按普通校注
 }
 ```
 
+### `GET /api/projects/{id}/coverage`
+
+校注覆盖盲区。基于**已保存**的项目文档（只读、不写库），可加查询参数
+`speaker`（精确、自动去除首尾空白）只返回某一位说话人；未知说话人是
+合法的空报告（`speakers: []`），**项目不存在返回 404**。
+
+统计按毫秒整数半开区间进行：忽略空说话人与零长度 / 非法条目；同一
+说话人自身重叠或相接的发言片段先合并；仅同名说话人的校注可覆盖其
+发言（校注先并集，重叠不重复计时，再裁剪到发言范围内，超出发言的
+部分不计入）；多人同时发言分别计入各自说话人。
+
+```json
+{
+  "projectId": "proj-…",
+  "projectName": "访谈A",
+  "speaker": null,
+  "summary": {
+    "speakers": 2,
+    "speechMs": 55000, "speechSeconds": 55.0,
+    "coveredMs": 33000, "coveredSeconds": 33.0,
+    "uncoveredMs": 22000, "uncoveredSeconds": 22.0,
+    "coverage": 0.6,
+    "uncoveredIntervalCount": 3
+  },
+  "speakers": [
+    {
+      "speaker": "甲",
+      "speechMs": 30000, "speechSeconds": 30.0,
+      "coveredMs": 30000, "coveredSeconds": 30.0,
+      "uncoveredMs": 0, "uncoveredSeconds": 0.0,
+      "coverage": 1.0,
+      "speechRanges": [{"start": 0.0, "end": 20.0},
+                       {"start": 50.0, "end": 60.0}],
+      "uncoveredCount": 0,
+      "uncoveredRanges": []
+    },
+    {
+      "speaker": "乙",
+      "speechMs": 25000, "speechSeconds": 25.0,
+      "coveredMs": 3000, "coveredSeconds": 3.0,
+      "uncoveredMs": 22000, "uncoveredSeconds": 22.0,
+      "coverage": 0.12,
+      "speechRanges": [{"start": 30.0, "end": 45.0},
+                       {"start": 55.0, "end": 65.0}],
+      "uncoveredCount": 3,
+      "uncoveredRanges": [
+        {"start": 30.0, "end": 35.0,
+         "durationMs": 5000, "duration": 5.0}
+      ]
+    }
+  ]
+}
+```
+
+`coverage` 为 `coveredMs / speechMs`（保留四位小数，无发言时为 `0.0`）；
+`uncoveredRanges` 即发言区间减去同名校注覆盖并集后的盲区，按时间顺序
+排列，前端点击盲区深链 `?focusStart=&focusEnd=&focusSource=coverage`
+回到编辑页定位。
+
 ### `POST /api/projects/{id}/quality-check`
 
 对**已保存**的项目文档做质检。请求体可省略（或为 `{}`），表示整条转写；
@@ -895,7 +998,8 @@ npm run dev
 cd backend
 python -m pytest test_merge.py test_rules_api.py test_quality.py \
   test_quality_api.py test_quality_scans_api.py test_quotes_api.py \
-  test_speakers_api.py test_excerpts_api.py test_public_transcript_api.py -q
+  test_speakers_api.py test_excerpts_api.py test_public_transcript_api.py \
+  test_coverage_api.py -q
 ```
 
 运行前端算法单测（发言时长扫描线与接话关系判定，Node 内置测试运行器，
@@ -939,7 +1043,13 @@ TestClient）；**质检引擎**另有 16 个扫描线算法单测（越界首�
 字符数分别统计）、区分大小写选项、说话人匿名编号按首次出现顺序分配
 且重复构建一致、片段 ID / 起止时间 / 分段保留且原文档不被修改、
 下载体只含片段五个公开字段（无校注 / 原说话人姓名 / 敏感词原文）、
-空输入透传、非法输入的 400 / 422 与未知项目 404。**接话关系与发言时长**前端单测
+空输入透传、非法输入的 400 / 422 与未知项目 404。**校注覆盖盲区**用例
+（`test_coverage_api.py`）覆盖同一说话人相接 / 重叠发言片段合并、
+仅同名校注可覆盖（他人校注不计）、校注越出发言部分不计入、重叠校注
+并集不重复计时、盲区按半开区间求差（相接覆盖端点不产生零长度盲区）、
+多人同讲分别计入各自说话人、毫秒四舍五入与前端 `Math.round` 一致、
+说话人筛选与未知名称空报告、空 / 非法文档、说话人按片段首次出现排序，
+以及端到端 API 的全量报告、`speaker` 筛选与未知项目 404。**接话关系与发言时长**前端单测
 （`frontend/src/turnTaking.test.js`，`npm test`）覆盖发言时长统计的
 回归用例（自身重叠 / 相接片段合并、同讲按人累计、全体同时发言）与
 接话判定（相接独讲零静默、静默阈值边界、仅两人同讲记插话、第三人或
@@ -962,6 +1072,7 @@ TestClient）；**质检引擎**另有 16 个扫描线算法单测（越界首�
 │   │   ├── quotes.py        # 引语检索：同说话人相接片段链接、忽略空白与逐字映射
 │   │   ├── excerpts.py      # 摘录包：区间合并、完整片段收录、校注裁剪 / 拆分与来源标识
 │   │   ├── redact.py        # 公开版转写：敏感词逐字遮盖（跨相接同说话人片段）与说话人匿名编号
+│   │   ├── coverage.py      # 校注覆盖盲区：按说话人合并发言、同名校注覆盖并集裁剪与未覆盖区间
 │   │   ├── speakers.py      # 说话人归一：名称汇总、链式映射归并与循环检测
 │   │   ├── importer.py      # 转写稿解析（纯文本 / JSON）
 │   │   ├── db.py            # SQLite 持久化（项目 / 规则 / 应用记录 / 质检扫描历史 / 说话人归一事务）
@@ -974,11 +1085,12 @@ TestClient）；**质检引擎**另有 16 个扫描线算法单测（越界首�
 │   ├── test_quotes_api.py   # 引语检索引擎与 API 测试
 │   ├── test_excerpts_api.py # 摘录包引擎与 API 测试（区间合并 / 排除 / 校注拆分）
 │   ├── test_public_transcript_api.py  # 公开版转写引擎与 API 测试（遮盖 / 匿名 / 只含片段下载）
+│   ├── test_coverage_api.py # 校注覆盖盲区引擎与 API 测试（发言合并 / 同名覆盖 / 盲区求差 / 筛选 / 404）
 │   ├── test_speakers_api.py # 说话人归一引擎与 API 测试（含事务回滚）
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/           # 项目列表 / 编辑器 / 三方合并 / 规则标注 / 质检 / 说话人归一 / 摘录包 / 公开版转写
+│   │   ├── pages/           # 项目列表 / 编辑器 / 三方合并 / 规则标注 / 质检 / 说话人归一 / 摘录包 / 公开版转写 / 覆盖盲区
 │   │   ├── components/      # 时间轴、标注弹窗、片段表、冲突裁决卡、引语检索、发言时长、接话关系
 │   │   ├── api.js  utils.js  speakingTime.js  turnTaking.js  styles.css
 │   │   └── turnTaking.test.js  # 发言时长扫描线回归 + 接话关系判定单测（node --test）
